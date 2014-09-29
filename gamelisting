@@ -1,0 +1,101 @@
+#!/usr/bin/bash
+
+
+function get_matches()
+{
+  echo -en "\033[sGetting match links"
+
+  for ((i=0;i<=days_ahead;i++)); do
+    wget -qO- "http://www.oxybet.com/odds_comparison.asp?spoid=1&modid=1&cur_dat=`date --date="$i"day +%Y%m%d`" |\
+    tidy -i -w -q -f /dev/null |\
+    sed -n 's/.*<a class=\"more\" href=\"\/\([[:print:]]*\)\-vs\-\([[:print:]]*\)\/e\/\([[:digit:]]*\/\).*/www.oxybet.com\/\1\-vs\-\2\/e\/\3  \1 \2/p';
+  done > matches
+
+  echo -en "\033[u\033[K"
+}
+
+
+function get_category()
+{
+    tidy -i -w -q -f /dev/null |\
+    sed  -e '/<div class=\"top\">/,$!d'\
+         -e '/<div class=\"lft\">/,$!d'\
+         -e '1,/<\/div>/!d'\
+         -e '/<a href=/!d'\
+	 -e 's/.*\/\([[:print:]]*\)\/.\/[[:digit:]]*\/.*/\1/'
+}
+
+
+
+function clean_odds_table()
+{
+    tidy -i -w -q -f /dev/null |\
+    sed  -e '/<table class=\"eved sortable\">/,$!d'\
+         -e '1,/<\/table>/!d'\
+         -e '/<thead>/,/<\/thead>/d'\
+         -e '/<td class=\"l\">/d '\
+         -e '/<td class=\"c/d'\
+         -e '/<td class=\"graph/d'\
+         -e 's/<a href[^>]*>//g'\
+         -e 's/<img[^>]*>//g'\
+         -e 's/<\/a>//g'\
+         -e 's/<span class=\"company_info\">[^>]*<\/span>//g'\
+         -e 's/<br>//g' |\
+    tidy -i -w -q -f /dev/null |\
+    sed  -e '/<table class/,/<\/table>/!d'\
+         -e 's/<span[^>]*>//g'\
+         -e 's/<\/span>//g'\
+         -e 's/ [[:digit:],]*<\/td>/<\/td>/g'\
+         -e 's/,/./g' \
+         -e 's/ //g'\
+         -e 's/class/ class/g' \
+	 -e 's/>888</>sport888</g'|\
+    html2text 
+}
+
+# defaults
+capital=10
+min_value=1.1
+days_ahead=3
+
+while :; do
+  case $1 in 
+     (-c | --capital)
+       capital="$2"
+       shift 2
+       ;;
+     (-v | --min-value)
+       min_value="$2"
+       shift 2
+       ;;
+     (-d | --days-ahead)
+       days_ahead="$2"
+       shift 2
+       ;;
+     (-*)
+       echo "Error: Unknown option: $1" >&2
+       exit 1
+       ;;
+     (*)
+       break
+       ;;
+  esac
+done
+
+
+get_matches
+printf "%50s%10s%10s%10s%13s%10s\n\n" "match" "value" "prob" "odds" "bet"  "point";
+while read line; do
+  word=( $line);
+  match_name=`printf "%25s%4s%s" ${word[1]} -vs- ${word[2]}`
+  printf "\033[95D\033[K%50s%45s" $match_name 'Downloading and Processing Game Data'
+  raw_html=`wget -qO- "${word[0]}"`
+  echo $raw_html | clean_odds_table > table ;
+  category=`echo $raw_html | get_category`
+#echo "$category"   # D E B U G
+  ./value_bets.m $capital $match_name $min_value $category;
+done < matches
+
+printf "\033[95D\033[K"
+
+
