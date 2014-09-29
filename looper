@@ -1,0 +1,15 @@
+#! usr/bin/bash
+
+
+setterm -blank 0;
+cd ~/codes/valuing
+
+while :; do
+  clear;
+  bash ./gamelisting -v 1.03 -d 1 -c 10;
+  sleepfor=$((836+$RANDOM%128));
+  for ((t=sleepfor;t>0;t--));
+    do echo -en "\033[50;0f\033[KNext Update: $((t/60))'$((t%60))\"";
+    sleep 1;
+  done;
+done
