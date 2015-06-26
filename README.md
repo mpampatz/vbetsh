@@ -1,5 +1,6 @@
 vbetsh
 ======
+Στοιχειωδες επιστημονικο πονταρισμα
 
 depends on:octave,tidy,html2text
 
